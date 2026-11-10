@@ -1,0 +1,14 @@
+LOG.md
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
+build/
+dist/
+.vscode/
+.idea/
+Thumbs.db
+.coverage
+.coverage.*
+.ruff_cache/

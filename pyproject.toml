@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agenthub"
+dynamic = ["version"]
+description = "Sends messages between coding agents on one machine through a shared folder. No server."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Brad Chamberlain" }]
+requires-python = ">=3.10"
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff==0.11.*", "lizard==1.17.*", "coverage>=7.10"]
+
+[project.scripts]
+agenthub = "agenthub.__main__:main"
+
+[tool.setuptools]
+packages = ["agenthub"]
+
+[tool.setuptools.package-data]
+agenthub = ["viewer.html"]
+
+[tool.setuptools.dynamic]
+version = { attr = "agenthub.__version__" }
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "C90", "SIM", "PL"]
+
+[tool.coverage.run]
+branch = true
+source = ["agenthub"]
+patch = ["subprocess"]          # the CLI tests run agenthub in child processes; measure those too

@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentHub Live</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e2e2e0; --hover: #f0f0ee;
+  --accent: #2f6fdf; --ok: #1f9d55; --warn: #c27c0e; --bad: #c0392b; --new: #fff6d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151517; --panel: #1e1e21; --text: #ececec; --muted: #9a9aa2; --line: #2f2f33; --hover: #26262a;
+    --accent: #6ea0ff; --ok: #4cc27a; --warn: #e3a33c; --bad: #ef6b5e; --new: #3a3420;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 16px; }
+.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+h1 { font-size: 16px; margin: 0; }
+.channel { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.status { font-size: 12px; color: var(--muted); }
+.status.live::before { content: "\25CF "; color: var(--ok); }
+.status.down::before { content: "\25CF "; color: var(--bad); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.controls input[type=search] { flex: 1 1 180px; min-width: 0; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+.controls select, .controls button { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); cursor: pointer; }
+.controls label { font-size: 12px; color: var(--muted); display: flex; gap: 4px; align-items: center; }
+.lanes { display: grid; margin-top: 10px; }
+.lane-head { text-align: center; padding: 6px 4px; border-radius: 8px; background: var(--bg); margin: 0 4px; min-width: 0; }
+.lane-head .name { font-weight: 600; overflow-wrap: anywhere; }
+.lane-head .meta { font-size: 11px; color: var(--muted); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--line); margin-right: 5px; vertical-align: middle; }
+.dot.on { background: var(--ok); box-shadow: 0 0 0 0 var(--ok); animation: pulse 1.6s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+main { padding: 0 16px 40px; }
+.row { position: relative; border-bottom: 1px solid var(--line); cursor: pointer; }
+.row:hover { background: var(--hover); }
+.row.fresh { animation: fresh 2.5s ease-out; }
+@keyframes fresh { from { background: var(--new); } to { background: transparent; } }
+.track { position: relative; height: 30px; }
+.lane-line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.arrow { position: absolute; top: 18px; height: 2px; }
+.arrow.self { border-radius: 2px; }
+.head { position: absolute; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.head.right { right: -1px; border-left: 8px solid currentColor; }
+.head.left { left: -1px; border-right: 8px solid currentColor; }
+.start { position: absolute; top: 14px; width: 10px; height: 10px; border-radius: 50%; }
+.label { position: absolute; top: 1px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+.label .id { color: var(--muted); }
+.label .kind { font-weight: 600; }
+.time { position: absolute; right: 4px; top: 1px; font-size: 11px; color: var(--muted); }
+.detail { display: none; padding: 8px 12px 12px; }
+.row.open .detail { display: block; }
+.detail .hdr { font-size: 12px; color: var(--muted); margin-bottom: 6px; overflow-wrap: anywhere; }
+.detail pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.45 ui-monospace, Consolas, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; max-height: 60vh; overflow: auto; }
+.empty { padding: 30px; text-align: center; color: var(--muted); }
+.more { display: block; margin: 12px auto; padding: 6px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); cursor: pointer; }
+.error { color: var(--bad); font-size: 12px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.legend .item { display: flex; align-items: center; gap: 6px; }
+.legend .swatch { position: relative; width: 34px; height: 12px; }
+.legend .swatch .bar { position: absolute; left: 0; right: 6px; top: 5px; height: 2px; }
+.legend .swatch .tip { position: absolute; right: 0; top: 1px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 8px solid currentColor; }
+.legend .swatch .from { position: absolute; left: -2px; top: 1px; width: 10px; height: 10px; border-radius: 50%; }
+.legend .chip { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.legend .palette { display: inline-flex; gap: 2px; }
+.legend .flash { width: 22px; height: 12px; border-radius: 2px; background: var(--new); border: 1px solid var(--line); }
+@media (max-width: 600px) { .label { font-size: 11px; } .time { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>AgentHub Live</h1>
+    <span class="status" id="status">connecting…</span>
+    <span class="channel" id="channel"></span>
+  </div>
+  <div class="controls">
+    <input type="search" id="search" placeholder="Filter: title, body, kind…">
+    <select id="who"><option value="">all participants</option></select>
+    <select id="kind"><option value="">all kinds</option></select>
+    <label><input type="checkbox" id="follow" checked> follow newest</label>
+    <span class="error" id="error"></span>
+  </div>
+  <div class="legend" id="legend" aria-label="legend"></div>
+  <div class="lanes" id="lanes"></div>
+</header>
+<main>
+  <button class="more" id="more" hidden>show older messages</button>
+  <div id="list"></div>
+  <div class="empty" id="empty" hidden>No messages match.</div>
+</main>
+<script>
+"use strict";
+const POLL_MS = 1000;
+const PAGE = 300;                   // rows drawn at first; older rows on request
+const state = { events: [], lastId: 0, participants: [], listening: {}, cursors: {}, shown: PAGE, fresh: new Set(), open: new Set() };
+const el = id => document.getElementById(id);
+
+function laneIndex(name) { return state.participants.indexOf(name); }
+function laneX(index) { return (index + 0.5) * 100 / state.participants.length; }
+// Each participant gets its own colour, with no limit on their number. Participants are numbered in the order of
+// their first appearance in the channel log (append-only), so a new participant never changes an existing colour.
+// Participant k gets the hue BASE_HUE + k x golden angle: any count of hues stays spread around the circle. From the
+// eighth participant on, the lightness alternates as well, so that two nearby hues still differ.
+const BASE_HUE = 215;
+const GOLDEN_ANGLE = 137.508;
+const SPREAD_HUES = 7;
+const order = [];                   // participant names in order of first appearance
+
+function rememberOrder(events, participants) {
+  for (const ev of events) {
+    for (const name of [ev.sender, ev.to]) {
+      if (name !== "*" && !order.includes(name)) {
+        order.push(name);
+      }
+    }
+  }
+  for (const name of participants) {   // listed in hub.json but never seen yet: after the active ones
+    if (!order.includes(name)) {
+      order.push(name);
+    }
+  }
+}
+
+function colour(name) {
+  const index = Math.max(order.indexOf(name), 0);
+  const hue = (BASE_HUE + index * GOLDEN_ANGLE) % 360;
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const base = dark ? 66 : 42;
+  const shift = index >= SPREAD_HUES && index % 2 === 1 ? 14 : 0;
+  const lightness = dark ? base - shift : base + shift;
+  return `hsl(${hue.toFixed(1)} 68% ${lightness}%)`;
+}
+
+function recipients(ev) { return ev.to === "*" ? state.participants.filter(p => p !== ev.sender) : [ev.to]; }
+
+function matches(ev) {
+  const who = el("who").value, kind = el("kind").value, q = el("search").value.trim().toLowerCase();
+  if (who && ev.sender !== who && ev.to !== who && ev.to !== "*") return false;
+  if (kind && ev.kind !== kind) return false;
+  if (!q) return true;
+  return [ev.title, ev.body, ev.kind, ev.sender, ev.to, ev.status, String(ev.id)].join(" ").toLowerCase().includes(q);
+}
+
+function drawLanes() {
+  const box = el("lanes");
+  box.style.gridTemplateColumns = `repeat(${state.participants.length}, 1fr)`;
+  box.replaceChildren(...state.participants.map(name => {
+    const head = document.createElement("div");
+    head.className = "lane-head";
+    const listening = !!state.listening[name];
+    const read = state.cursors[name] || 0;
+    const unread = state.events.filter(e => e.id > read && (e.to === name || (e.to === "*" && e.sender !== name))).length;
+    const nameRow = document.createElement("div");
+    nameRow.className = "name";
+    nameRow.style.color = colour(name);
+    const dot = document.createElement("span");
+    dot.className = "dot" + (listening ? " on" : "");
+    dot.title = listening ? "waiting in next (listening)" : "not listening";
+    nameRow.append(dot, document.createTextNode(name));
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `${listening ? "listening" : "not listening"} · read #${read} · ${unread} unread`;
+    head.append(nameRow, meta);
+    return head;
+  }));
+}
+
+// One message row: the lane lines, the arrow, the label and time, and the hidden detail.
+function drawRow(ev) {
+  const row = document.createElement("div");
+  const freshClass = state.fresh.has(ev.id) ? " fresh" : "";
+  const openClass = state.open.has(ev.id) ? " open" : "";
+  row.className = "row" + freshClass + openClass;
+  const track = document.createElement("div");
+  track.className = "track";
+  track.append(...drawLaneLines(), ...drawArrow(ev), drawTime(ev));
+  row.append(track, drawDetail(ev));
+  row.addEventListener("click", event => toggleRow(event, row, ev.id));
+  return row;
+}
+
+function drawLaneLines() {
+  return state.participants.map((_, index) => {
+    const line = document.createElement("div");
+    line.className = "lane-line";
+    line.style.left = laneX(index) + "%";
+    return line;
+  });
+}
+
+// The arrow from the sender lane to every recipient lane, its start dot and its label.
+function drawArrow(ev) {
+  const senderIndex = Math.max(laneIndex(ev.sender), 0);
+  const from = laneX(senderIndex);
+  const targets = recipients(ev).map(laneIndex).filter(index => index >= 0).map(laneX);
+  const lo = Math.min(from, ...targets);
+  const hi = Math.max(from, ...targets);
+  const span = Math.max(hi - lo, 0.5);
+  const colourOf = colour(ev.sender);
+  const arrow = document.createElement("div");
+  arrow.className = "arrow";
+  arrow.style.left = lo + "%";
+  arrow.style.width = span + "%";
+  arrow.style.color = colourOf;
+  if (ev.to === "*") {
+    // A broadcast is drawn dashed across every receiving lane.
+    arrow.style.backgroundImage = `repeating-linear-gradient(90deg, ${colourOf} 0 6px, transparent 6px 10px)`;
+  } else {
+    arrow.style.background = colourOf;
+  }
+  for (const target of targets) {
+    arrow.append(drawHead(target, from, lo, span, colourOf));
+  }
+  const start = document.createElement("div");
+  start.className = "start";
+  start.style.left = `calc(${from}% - 5px)`;
+  start.style.background = colourOf;
+  return [arrow, start, drawLabel(ev, lo, hi)];
+}
+
+function drawHead(target, from, lo, span, colourOf) {
+  const head = document.createElement("div");
+  const pointsRight = target >= from;
+  const position = (target - lo) / span * 100;
+  head.className = "head " + (pointsRight ? "right" : "left");
+  head.style.color = colourOf;
+  if (pointsRight) {
+    head.style.right = "auto";
+    head.style.left = `calc(${position}% - 7px)`;
+  } else {
+    head.style.left = `calc(${position}% - 1px)`;
+  }
+  return head;
+}
+
+function drawLabel(ev, lo, hi) {
+  const label = document.createElement("div");
+  label.className = "label";
+  label.style.left = lo + "%";
+  label.style.maxWidth = `calc(${Math.max(hi - lo, 30)}% - 60px)`;
+  const id = document.createElement("span");
+  id.className = "id";
+  id.textContent = `#${ev.id} `;
+  const kind = document.createElement("span");
+  kind.className = "kind";
+  kind.style.color = colour(ev.sender);
+  const number = ev.number ? ` ${ev.number}` : "";
+  const status = ev.status ? ` [${ev.status}]` : "";
+  kind.textContent = ev.kind + number + status;
+  const title = document.createElement("span");
+  title.textContent = " " + (ev.title || "(no title)");
+  label.append(id, kind, title);
+  label.title = `${ev.sender} → ${ev.to}: ${ev.title}`;
+  return label;
+}
+
+function drawTime(ev) {
+  const time = document.createElement("div");
+  time.className = "time";
+  time.textContent = new Date(ev.time_utc).toLocaleString();
+  return time;
+}
+
+function drawDetail(ev) {
+  const detail = document.createElement("div");
+  detail.className = "detail";
+  const hdr = document.createElement("div");
+  hdr.className = "hdr";
+  const number = ev.number ? " " + ev.number : "";
+  const status = ev.status ? " · " + ev.status : "";
+  const file = ev.file ? " · file " + ev.file : "";
+  hdr.textContent = `#${ev.id} · ${ev.sender} → ${ev.to} · ${ev.kind}${number}${status}${file} · ${ev.time_utc}`;
+  const pre = document.createElement("pre");
+  pre.textContent = ev.body;
+  detail.append(hdr, pre);
+  return detail;
+}
+
+// A click opens or closes the detail; a click inside the body text (to select it) does nothing.
+function toggleRow(event, row, id) {
+  if (event.target.closest("pre")) {
+    return;
+  }
+  row.classList.toggle("open");
+  if (row.classList.contains("open")) {
+    state.open.add(id);
+  } else {
+    state.open.delete(id);
+  }
+}
+
+// The legend: one colour per sender, the line styles, the dots and the counters of the lane heads.
+function drawLegend() {
+  const box = el("legend");
+  const palette = document.createElement("span");
+  palette.className = "palette";
+  palette.append(...state.participants.slice(0, 4).map(name => chip(colour(name))));
+  const items = [legendItem(palette, "each participant has its own colour; an arrow has the colour of its sender")];
+  const direct = swatch("solid");
+  const broadcast = swatch("dashed");
+  const listening = document.createElement("span");
+  listening.className = "dot on";
+  const idle = document.createElement("span");
+  idle.className = "dot";
+  const flash = document.createElement("span");
+  flash.className = "flash";
+  items.push(legendItem(direct, "direct message: dot = sender lane, arrowhead = recipient lane"));
+  items.push(legendItem(broadcast, "dashed = broadcast to every other participant"));
+  items.push(legendItem(listening, "listening (waiting in next)"));
+  items.push(legendItem(idle, "not listening"));
+  items.push(legendItem(flash, "just arrived"));
+  items.push(legendItem(document.createTextNode("read #N"), "last message the participant has read; unread = waiting for it"));
+  items.push(legendItem(document.createTextNode("click a row"), "full message text"));
+  box.replaceChildren(...items);
+}
+
+function legendItem(symbol, text) {
+  const item = document.createElement("span");
+  item.className = "item";
+  const label = document.createElement("span");
+  label.textContent = text;
+  item.append(symbol, label);
+  return item;
+}
+
+function chip(colourOf) {
+  const box = document.createElement("span");
+  box.className = "chip";
+  box.style.background = colourOf;
+  return box;
+}
+
+function swatch(style) {
+  const box = document.createElement("span");
+  box.className = "swatch";
+  box.style.color = "var(--muted)";
+  const bar = document.createElement("span");
+  bar.className = "bar";
+  if (style === "dashed") {
+    bar.style.backgroundImage = "repeating-linear-gradient(90deg, var(--muted) 0 6px, transparent 6px 10px)";
+  } else {
+    bar.style.background = "var(--muted)";
+  }
+  const from = document.createElement("span");
+  from.className = "from";
+  from.style.background = "var(--muted)";
+  const tip = document.createElement("span");
+  tip.className = "tip";
+  box.append(bar, from, tip);
+  return box;
+}
+
+function drawList() {
+  const visible = state.events.filter(matches);
+  const slice = visible.slice(Math.max(visible.length - state.shown, 0));
+  el("list").replaceChildren(...slice.map(drawRow));
+  el("more").hidden = visible.length <= slice.length;
+  el("empty").hidden = visible.length > 0;
+  if (el("follow").checked) window.scrollTo(0, document.body.scrollHeight);
+}
+
+// Add every new participant and message kind to the two filter lists.
+function updateFilters() {
+  const who = el("who");
+  const kind = el("kind");
+  const knownNames = new Set([...who.options].map(option => option.value));
+  for (const name of state.participants) {
+    if (!knownNames.has(name)) {
+      who.add(new Option(name, name));
+    }
+  }
+  const knownKinds = new Set([...kind.options].map(option => option.value));
+  for (const ev of state.events) {
+    if (!knownKinds.has(ev.kind)) {
+      kind.add(new Option(ev.kind, ev.kind));
+      knownKinds.add(ev.kind);
+    }
+  }
+}
+
+async function poll() {
+  try {
+    const response = await fetch(`/api/state?after=${state.lastId}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || response.statusText);
+    const first = state.lastId === 0;
+    rememberOrder(data.events, data.participants);
+    state.participants = data.participants;
+    state.listening = data.listening;
+    state.cursors = data.cursors;
+    el("channel").textContent = data.channel;
+    if (data.events.length) {
+      state.events.push(...data.events);
+      state.lastId = data.last_id;
+      state.fresh = first ? new Set() : new Set(data.events.map(e => e.id));
+      updateFilters();
+      drawList();
+    }
+    drawLanes();
+    drawLegend();
+    el("status").className = "status live";
+    el("status").textContent = `live · ${state.events.length} messages`;
+    el("error").textContent = "";
+  } catch (error) {
+    el("status").className = "status down";
+    el("status").textContent = "disconnected";
+    el("error").textContent = String(error.message || error);
+  }
+  setTimeout(poll, POLL_MS);
+}
+
+function onFilterChange() {
+  state.shown = PAGE;
+  state.fresh = new Set();
+  drawList();
+}
+
+function onShowOlder() {
+  state.shown += PAGE;
+  el("follow").checked = false;
+  state.fresh = new Set();
+  drawList();
+}
+
+// Scrolling up stops "follow newest", so new messages do not pull the reader away.
+function onScroll() {
+  const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 40;
+  const following = el("follow").checked;
+  if (!atBottom && following && document.activeElement !== el("follow")) {
+    el("follow").checked = false;
+  }
+}
+
+function onFollowChange() {
+  if (el("follow").checked) {
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+}
+
+for (const id of ["search", "who", "kind"]) {
+  el(id).addEventListener("input", onFilterChange);
+}
+el("more").addEventListener("click", onShowOlder);
+window.addEventListener("scroll", onScroll);
+el("follow").addEventListener("change", onFollowChange);
+poll();
+</script>
+</body>
+</html>
