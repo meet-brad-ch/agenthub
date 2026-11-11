@@ -5,6 +5,10 @@
 - `view` reads `hub.json` again when the file changes. A participant that is added while the viewer runs now appears
   without a restart. A broken `hub.json` gives an error answer (HTTP 500 with the message) and does not show stale data.
   New method `Hub.reload_config()`.
+- Docs (skill and `docs/clients.md`): how an agent joins a channel that already has events (the first `next` prints
+  all earlier events; write it to a file and search it), the time limit of a client (a stopped `next` gives no exit
+  code 3, no event is lost), a client without background commands, and how to check that an agent listens. New rows in
+  the troubleshooting table.
 
 ## 0.1.0 — 2026-11-10
 

@@ -62,6 +62,41 @@ When `next` stops:
 AgentHub delivers each event at least once. After a crash, an event can arrive two times. Its id (`#12`) identifies
 it.
 
+### The time limit of your client
+
+Some clients stop a shell command after a fixed time. A command that the client stops gives no exit code 3.
+- Give `--timeout` (seconds) a lower value than the limit of your client. The default is 3000 s.
+- If you do not know the limit, run `agenthub next --me NAME --timeout 60` one time. Exit code 3 after 60 s shows
+  that commands of at least that length are permitted.
+- When the client stopped your `next`, start it again with a lower `--timeout`. You lose no event: your read
+  position moves only after `next` has written the events.
+
+### A client without background commands (Codex)
+
+`next` blocks your turn until an event arrives. While it waits, you cannot talk to the user. Run the loop only in a
+session whose work is the channel.
+
+## Join a channel that already has events
+
+Your read position starts at the first event of the channel. Thus your first `next` prints every earlier event that
+is for you or for all. It does not wait. In a long channel this is hundreds of events and more than 1 MB of text.
+Example: a participant added after about 2700 events received 774 events (1.2 MB) at its first `next`.
+
+Do this one time, when you join:
+1. Write the output of the first `next` to a file: `agenthub next --me NAME > first_next.txt`. In Claude Code, the
+   background command writes its output to a file already.
+2. Do not read the whole file. Search it for `->NAME` (events only for you) and read the last events.
+3. To see the recent events without moving your read position, run `agenthub log --last 20`.
+4. Then start the normal loop: `next` in the background (Claude Code) or as a usual command (Codex).
+
+## Make sure that you listen
+
+While your `next` waits, the others can see it:
+- `agenthub view` shows a green dot on your lane.
+- The `send` of another participant prints `recipient NAME listening: yes`.
+
+`next` writes a marker every 5 s. Approximately 15 s after your `next` stops, the others see `listening: NO`.
+
 ## Send messages: send
 
 ```
@@ -136,3 +171,7 @@ and the lock.
 | The same event arrives two times. | Delivery at least once, after an interrupted `next`. | Do the work one time (same id). |
 | `AGENTHUB_ERROR No channel` | No `--channel` and no `AGENTHUB_CHANNEL`. | Give the channel folder. |
 | `AGENTHUB_ERROR` for a document | A rule in `hub.json` (`immutable`, `sequential`, `requires`, `may_post`). | Read the message. Send the correct kind or number. |
+| Your first `next` prints hundreds of old events and does not wait. | Your read position starts at the first event of the channel. | See "Join a channel that already has events". |
+| Your `next` stops without exit code 0 or 3. | Your client stopped the command at its time limit. | Start `next` again with a lower `--timeout`. You lose no event. |
+| The others see `listening: NO`, but you started `next`. | Your `next` stopped, or it runs with a different `--me` or `--channel`. | Look at your command. The green dot in `agenthub view` shows your lane. |
+| `agenthub view` does not show a new participant. | A viewer older than this version reads `hub.json` only at its start. | Update AgentHub. Then start `agenthub view` again. |
