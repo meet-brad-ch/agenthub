@@ -320,14 +320,50 @@ class Hub:
         """
         self.channel = Path(channel).resolve()
         HubError.require(self.channel.is_dir(), f"Channel folder does not exist: {self.channel}")
-        config_path = self.channel / CONFIG_NAME
-        HubError.require(config_path.is_file(), f"Missing {config_path}; run 'agenthub init' first")
-        self.config = HubConfig.from_json(json.loads(config_path.read_text(encoding="utf-8")))
+        self.config_path = self.channel / CONFIG_NAME
+        HubError.require(self.config_path.is_file(), f"Missing {self.config_path}; run 'agenthub init' first")
+        self.config_stamp = self._config_file_stamp()
+        self.config = self._read_config()
         self.state = self.channel / STATE_DIR
         self.state.mkdir(exist_ok=True)
         self.events_path = self.state / EVENTS_NAME
         self.cursors_path = self.state / CURSORS_NAME
         self.lock = FileLock(self.state / LOCK_NAME)
+
+    def reload_config(self) -> bool:
+        """Read hub.json again when the file changed since the last read (a long-running process such as `view`
+        sees a participant that was added later).
+
+        @return True when hub.json was read again, False when it did not change.
+        @throws HubError when hub.json is missing, is not valid JSON or breaks a rule. The old rules stay in force
+                and the next call tries again.
+        @throws OSError when hub.json cannot be read.
+        """
+        HubError.require(self.config_path.is_file(), f"Missing {self.config_path}")
+        stamp = self._config_file_stamp()
+        if stamp == self.config_stamp:
+            return False
+        self.config = self._read_config()
+        self.config_stamp = stamp
+        return True
+
+    def _config_file_stamp(self) -> tuple[int, int]:
+        """(modification time in ns, size) of hub.json. @throws OSError when the file cannot be read."""
+        info = self.config_path.stat()
+        return info.st_mtime_ns, info.st_size
+
+    def _read_config(self) -> HubConfig:
+        """Parse hub.json.
+
+        @throws HubError when it is not valid JSON or breaks a rule.
+        @throws OSError when it cannot be read.
+        """
+        text = self.config_path.read_text(encoding="utf-8")
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as error:
+            raise HubError(f"{self.config_path}: not valid JSON: {error}") from error
+        return HubConfig.from_json(data)
 
     # ----- reading ---------------------------------------------------------------------------
 

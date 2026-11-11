@@ -6,12 +6,13 @@ import urllib.request
 
 import pytest
 
-from agenthub.core import LISTEN_PREFIX, PostRequest
+from agenthub.core import CONFIG_NAME, LISTEN_PREFIX, PostRequest
 from agenthub.viewer import ViewerServer
 
 HTTP_OK = 200
 HTTP_BAD_REQUEST = 400
 HTTP_NOT_FOUND = 404
+HTTP_SERVER_ERROR = 500
 SECOND_EVENT = 2
 
 
@@ -78,3 +79,21 @@ def test_bad_requests(served):
     _, base = served
     assert get(base + "/api/state?after=-1")[0] == HTTP_BAD_REQUEST
     assert get(base + "/nothing")[0] == HTTP_NOT_FOUND
+
+
+def test_participant_added_to_hub_json_is_shown(served):
+    hub, base = served
+    assert "g" not in state(base, 0)["participants"]
+    config_path = hub.channel / CONFIG_NAME
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    data["participants"]["g"] = {"may_post": ["message"]}
+    config_path.write_text(json.dumps(data), encoding="utf-8")
+    shown = state(base, 0)
+    assert "g" in shown["participants"] and shown["listening"]["g"] is False
+
+
+def test_broken_hub_json_is_reported(served):
+    hub, base = served
+    (hub.channel / CONFIG_NAME).write_text("{not json", encoding="utf-8")
+    status, body = get(f"{base}/api/state?after=0")
+    assert status == HTTP_SERVER_ERROR and b"hub.json" in body

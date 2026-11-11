@@ -2,7 +2,8 @@
 
 A small local HTTP server (standard library only, bound to 127.0.0.1) serves one page and one JSON endpoint:
   GET /                     the page (viewer.html next to this file)
-  GET /api/state?after=N    the events with id > N, the participants, who is listening now, and the read cursors
+  GET /api/state?after=N    the events with id > N, the participants (hub.json is read again when it changes),
+                            who is listening now, and the read cursors
 The page asks for new events once per second, so a new message appears within about one second. The viewer never
 writes to the channel: it does not take the lock, does not move cursors and does not touch listening markers.
 """
@@ -96,8 +97,9 @@ class ViewerState:
         """New events after `after` plus the live participant state.
 
         @param after the last event id the page has (0 = none).
-        @throws HubError, OSError as EventTail.refresh.
+        @throws HubError, OSError as EventTail.refresh and Hub.reload_config.
         """
+        self.hub.reload_config()                  # a participant added to hub.json after the start is shown
         self.tail.refresh()
         names = sorted(self.hub.config.participants)
         listening = {name: self.hub.listening(name) for name in names}

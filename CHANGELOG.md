@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `view` reads `hub.json` again when the file changes. A participant that is added while the viewer runs now appears
+  without a restart. A broken `hub.json` gives an error answer (HTTP 500 with the message) and does not show stale data.
+  New method `Hub.reload_config()`.
+
 ## 0.1.0 — 2026-11-10
 
 First public release.
